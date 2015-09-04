@@ -103,6 +103,20 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 	}
 	add_action( 'wc_autoship_db_insert', 'wc_autoship_initial_price_insert', 10, 4 );
 	
+	function wc_autoship_initial_price_delete( $table_name, $result, $id ) {
+		global $wpdb;
+		
+		if ( $result === false || empty( $id ) ) {
+			return;
+		}
+		if ( $table_name != "{$wpdb->prefix}wc_autoship_schedule_items" ) {
+			return;
+		}
+		
+		$wpdb->delete( "{$wpdb->prefix}wc_autoship_initial_prices", array( 'schedule_item_id' => $id ) );
+	}
+// 	add_action( 'wc_autoship_db_delete', 'wc_autoship_initial_price_delete', 10, 3 );
+	
 	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $autoship_frequency, $customer_id, $schedule_item_id ) {
 		global $wpdb;
 		
