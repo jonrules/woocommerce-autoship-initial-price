@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: WC Auto-Ship Intital Price
+Plugin Name: WC Auto-Ship Initial Price
 Plugin URI: http://patternsinthecloud.com
 Description: Maintain the initial purchase price for autoship items.
 Version: 1.0
@@ -94,12 +94,14 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 		}
 		
 		// Insert price
-		$data = array(
-			'schedule_item_id' => $id,
-			'price' => $autoship_price
-		);
-		$wpdb->insert( "{$wpdb->prefix}wc_autoship_initial_prices", $data );
+		$wpdb->query( $wpdb->prepare( 
+			"INSERT IGNORE INTO {$wpdb->prefix}wc_autoship_initial_prices(schedule_item_id, price, created_time, modified_time)
+			VALUES(%d, %f, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+			$id,
+			$autoship_price
+		) );
 	}
+	add_action( 'wc_autoship_db_insert', 'wc_autoship_initial_price_insert', 10, 4 );
 	
 	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $autoship_frequency, $customer_id, $schedule_item_id ) {
 		global $wpdb;
