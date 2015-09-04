@@ -15,7 +15,23 @@ include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 	
 	function wc_autoship_initial_price_install() {
-
+		global $wpdb;
+		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+		
+		$prefix = $wpdb->prefix;
+		
+		$wpdb->hide_errors();
+		
+		// Customers
+		$create_sql =
+			"CREATE TABLE {$prefix}wc_autoship_initial_prices (
+			schedule_item_id BIGINT(20) UNSIGNED NOT NULL,
+			price DECIMAL(10,2) NOT NULL,
+			created_time DATETIME NOT NULL,
+			modified_time DATETIME NOT NULL,
+			PRIMARY KEY  (schedule_item_id)
+			);";
+		dbDelta( $create_sql );
 	}
 	register_activation_hook( __FILE__, 'wc_autoship_initial_price_install' );
 	
@@ -53,8 +69,62 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 		echo '</div>';
 	}
 	
-	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $schedule_frequency, $customer_id ) {
+	function wc_autoship_initial_price_insert( $table_name, $data, $result, $id ) {
+		global $wpdb;
 		
+		if ( $result === false || empty( $id ) ) {
+			return;
+		}
+		if ( $table_name != "{$wpdb->prefix}wc_autoship_schedule_items" ) {
+			return;
+		}
+		
+		// Get item
+		if ( ! WC_Autoship_Schedule_Item::id_exists( $id ) ) {
+			return;
+		}
+		$item = new WC_Autoship_Schedule_Item( $id );
+		// Get price
+		$price = $item->get_autoship_price();
+		if ( empty( $price ) ) {
+			return;
+		}
+		
+		// Insert price
+		$data = array(
+			'schedule_item_id' => $id,
+			'price' => $price
+		);
+		$wpdb->insert( "{$wpdb->prefix}wc_autoship_initial_prices", $data );
 	}
-	add_filter( 'wc_autoship_price', 'wc_autoship_initial_price_filter' );
+	
+	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $autoship_frequency, $customer_id ) {
+		global $wpdb;
+		
+		if ( empty( $autoship_frequency ) || empty( $customer_id ) ) {
+			// Return default
+			return $autoship_price;
+		}
+		
+		$schedule = WC_Autoship_Schedule::get_schedule( $customer_id, $autoship_frequency );
+		if ( empty( $schedule ) ) {
+			// Return default
+			return $autoship_price;
+		}
+		
+		$initial_price = $wpdb->get_var( $wpdb->prepare(
+			"SELECT `initial_prices`.price
+			FROM {$wpdb->prefix}wc_autoship_initial_prices AS `initial_prices`
+			LEFT JOIN {$wpdb->prefix}wc_autoship_schedule_items AS `items` ON(`initial_prices`.schedule_item_id = `items`.id)
+			WHERE `items`.schedule_id = %d AND (`items`.product_id = %d OR `items`.variation_id = %d)",
+			$schedule->id, $product_id, $product_id
+		) );
+		if ( empty( $initial_price ) ) {
+			// Return default
+			return $autoship_price;
+		}
+		// Return initial price value
+		return $initial_price;
+	}
+	add_filter( 'wc_autoship_price', 'wc_autoship_initial_price_filter', 10, 4 );
 }
