@@ -85,29 +85,26 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 		}
 		$item = new WC_Autoship_Schedule_Item( $id );
 		// Get price
-		$price = $item->get_autoship_price();
-		if ( empty( $price ) ) {
+		$product_id = $item->get_product_id();
+		$variation_id = $item->get_variation_id();
+		$price_product_id = empty( $variation_id ) ? $product_id : $variation_id;
+		$autoship_price = get_post_meta( $price_product_id, '_wc_autoship_price', true );
+		if ( empty( $autoship_price ) ) {
 			return;
 		}
 		
 		// Insert price
 		$data = array(
 			'schedule_item_id' => $id,
-			'price' => $price
+			'price' => $autoship_price
 		);
 		$wpdb->insert( "{$wpdb->prefix}wc_autoship_initial_prices", $data );
 	}
 	
-	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $autoship_frequency, $customer_id ) {
+	function wc_autoship_initial_price_filter( $autoship_price, $product_id, $autoship_frequency, $customer_id, $schedule_item_id ) {
 		global $wpdb;
 		
-		if ( empty( $autoship_frequency ) || empty( $customer_id ) ) {
-			// Return default
-			return $autoship_price;
-		}
-		
-		$schedule = WC_Autoship_Schedule::get_schedule( $customer_id, $autoship_frequency );
-		if ( empty( $schedule ) ) {
+		if ( empty( $schedule_item_id ) ) {
 			// Return default
 			return $autoship_price;
 		}
@@ -116,8 +113,8 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 			"SELECT `initial_prices`.price
 			FROM {$wpdb->prefix}wc_autoship_initial_prices AS `initial_prices`
 			LEFT JOIN {$wpdb->prefix}wc_autoship_schedule_items AS `items` ON(`initial_prices`.schedule_item_id = `items`.id)
-			WHERE `items`.schedule_id = %d AND (`items`.product_id = %d OR `items`.variation_id = %d)",
-			$schedule->id, $product_id, $product_id
+			WHERE `items`.id = %d",
+			$schedule_item_id
 		) );
 		if ( empty( $initial_price ) ) {
 			// Return default
@@ -126,5 +123,5 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 		// Return initial price value
 		return $initial_price;
 	}
-	add_filter( 'wc_autoship_price', 'wc_autoship_initial_price_filter', 10, 4 );
+	add_filter( 'wc_autoship_price', 'wc_autoship_initial_price_filter', 10, 5 );
 }
