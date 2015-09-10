@@ -56,19 +56,6 @@ if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
 	}
 	add_action( 'admin_enqueue_scripts', 'wc_autoship_initial_price_admin_enqueue_scripts' );
 	
-	function wc_autoship_initial_price_admin_menu() {
-		add_menu_page( 'WC Auto-Ship Initial Price', 'Export', 'manage_woocommerce', 'wc_autoship_initial_price', 'wc_autoship_initial_price_render_admin_page', 'dashicons-media-spreadsheet' );
-	}
-	add_action( 'admin_menu', 'wc_autoship_initial_price_admin_menu' );
-	
-	function wc_autoship_initial_price_render_admin_page() {
-		echo '<div class="wrap">';
-
-		require_once( 'templates/admin-page.php' );
-			
-		echo '</div>';
-	}
-	
 	function wc_autoship_initial_price_insert( $table_name, $data, $result, $id ) {
 		global $wpdb;
 		
